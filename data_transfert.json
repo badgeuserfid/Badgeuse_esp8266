@@ -1,0 +1,24 @@
+{
+	/* ArduinoJson 150 Bytes allocation is more then enougth */
+	"esp8266": {
+		/* The request id for check
+		reset if exeeds a certain value */
+		"request":2147483647,
+		/* The RFID tag UID */
+		"uid": "0214748364734592450",
+		/* The token is to verify if the esp8266 has the right to send data to
+		script. Used for security to avoid everybody sending to the script */
+		"token": "someRandomStringForTheKey",
+	},
+	"server": {
+		/* Verify if the recieved message correspond to the sendt request.
+		If NOT, act like refuse "action" */
+		"request":2147483647,
+		/* Tell the esp8266 what to do:
+		refuse: do NOT open the door. Red led on.
+		open: open the door. Green light on.
+		newCard: whait <time> for new card. Green | Red led blink simultaneously
+		cardAdded: Green led blink fast */
+		"action": "refuse|open|newCard|cardAdded"
+	}
+}
