@@ -13,8 +13,10 @@
 #define SS_PIN 4  //D2
 #define RST_PIN 5 //D1
 
+// Set the Wifi ssid and password to connect to
 const char* ssid = STASSID;
 const char* password = STAPSK;
+
 // ESP8266WiFiMulti WiFiMulti;
 
 const String host = "";
