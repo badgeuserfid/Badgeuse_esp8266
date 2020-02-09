@@ -73,7 +73,6 @@ void setup() {
 
   // DEBUG: Serial
   Serial.begin(115200); // DEBUG
-
   // Initiate Wifi connexion
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -82,7 +81,6 @@ void setup() {
     Serial.print("."); // DEBUG
     delay(500);
   }
-
   Serial.println(); // DEBUG
   Serial.println("Connected!"); // DEBUG
   Serial.println(); // DEBUG
@@ -119,7 +117,6 @@ void loop() {
     toSend["token"] = "yay"; // put esp token here
     // stringify JSON object
     serializeJson(toSend, msg);
-
     client.publish("mytopic", msg);
     previousMillis = currentMillis;
   }
