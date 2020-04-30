@@ -10,28 +10,35 @@
 #define STAPSK ""  // Wifi password
 #endif
 
-#define SS_PIN 4  // D2 (esp) => SS_pin (rc522)
-#define RST_PIN 5 // D1 (esp) => RST_pin (rc522)
+#define SS_PIN 4  // D2 (node) => SS_pin (rc522)
+#define RST_PIN 5 // D1 (node) => RST_pin (rc522)
 
 // Set the Wifi ssid and password to connect to
 const char* ssid = STASSID;
 const char* password = STAPSK;
 // Set the mqtt server to connect to
 const char* mqtt_server = "";
-const int mqtt_port = 1883;
+const int mqtt_port = 8883;
 
 // Define the wifi client and mqtt Classes
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
+
+// Set server certificate fingerprint here
+static const char *fingerprint PROGMEM = "";
 
 // Create MFRC522 instance
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-// Set the Byte size allocated for JSON
-StaticJsonDocument<200> doc;
-
 // Request number increments for every new request send
-unsigned int request = 0;
+long request = 0;
+
+// Leds and relay
+const int green = D3;
+const int red = D4;
+String pinAction;
+int ledState;
+const int relay = D5;
 
 // Delay without delay
 unsigned long currentMillis;
@@ -51,12 +58,38 @@ void callback(char* topic, byte* payload, unsigned int length) {
   /*
    * Code to execute
    */
+  if ( ! strcmp(topic, "servtopic")) {
+    String message;
+    // Calculate the Byte size allocated for JSON and create an object
+    const size_t capacity = JSON_OBJECT_SIZE(3) + 80;
+    DynamicJsonDocument toRecieve(capacity);
+    // Convert the byte* message into String
+    for (int i = 0; i < length; i++) {
+      message.concat((char)payload[i]);
+    }
+    // parse JSON string
+    deserializeJson(toRecieve, message);
+    // Extract value from JSON object
+    long rcomp = toRecieve["request"];
+    // Test if the recieved response correspond to the lastest sent request
+    if (rcomp == request) {
+      const char* action = toRecieve["action"];
+      Serial.println(action); // DEBUG
+      if ( ! strcmp(action, "open")) {
+        pinAction = "open";
+      }
+      if ( ! strcmp(action, "refuse")) {
+        pinAction = "refuse";
+      }
+    }
+  }
+  Serial.println();
 }
 
 void reconnect() {
   if (currentMillis - mqttMillis > 5000) { // may work ??
     if (client.connect("")) { // Insert client name
-      client.publish("esptopic", "newconnexion");
+      //client.publish("esptopic", "newconnexion");
       client.subscribe("servtopic");
     } else {
       // make somethings with the leds
@@ -82,6 +115,11 @@ void setup() {
   SPI.begin(); // Initiate  SPI bus
   mfrc522.PCD_Init(); // Initiate MFRC522
 
+  // Set leds and relay pins
+  pinMode(green, OUTPUT);
+  pinMode(red, OUTPUT);
+  pinMode(relay, OUTPUT);
+
   // Wait for wifi connexion established
   while(WiFi.status() != WL_CONNECTED) {
     Serial.print("."); // DEBUG
@@ -91,6 +129,8 @@ void setup() {
   Serial.println(); // DEBUG
   Serial.println("Connected!"); // DEBUG
   Serial.println(); // DEBUG
+
+  espClient.setFingerprint(fingerprint);
 
   // Create the connexion to the mqtt server
   client.setServer(mqtt_server, mqtt_port);
@@ -117,8 +157,8 @@ void loop() {
   client.loop();
 
   // If card is detected and readable
-  if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    if ( ! mfrc522.PICC_ReadCardSerial()) {
+  if (mfrc522.PICC_IsNewCardPresent()) {
+    if (mfrc522.PICC_ReadCardSerial()) {
 
       // Store the RFID tag UID in uid
       String uid = "";
@@ -133,18 +173,52 @@ void loop() {
 
       // Send data to server in JSON format
 
-      // Create a JSON object to send data
-      JsonObject toSend = doc.to<JsonObject>();
+      // Calculate the Byte size allocated for JSON and create an object
+      const size_t capacity = JSON_OBJECT_SIZE(3);
+      DynamicJsonDocument toSend(capacity);
       // Increment request by 1
       request++;
       // Fill the JSON object to send
       toSend["request"] = request; // generate a request number
       toSend["uid"] = uid; // the RFID tag UID to be send
       toSend["token"] = "yay"; // put esp token here
+      char msg[200];
       serializeJson(toSend, msg);
       client.publish("esptopic", msg);
       
     }
   }
+
+  /***** LEDS *****/
+  if (ledState and (currentMillis - previousMillis > 2000)) {
+    digitalWrite(green, LOW);
+    digitalWrite(red, HIGH);
+    digitalWrite(relay, LOW);
+    ledState = 0;
+    pinAction = "done";
+  }
+  // Green led and relay on if access authorised
+  if (pinAction == "open") {
+    digitalWrite(green, HIGH);
+    digitalWrite(red, LOW);
+    digitalWrite(relay, HIGH);
+    previousMillis = currentMillis;
+    ledState = 1;
+  }
+  // Red led blink if access refused
+  if (pinAction == "refuse") {
+    if (currentMillis - previousMillis > 2000) {
+      previousMillis = currentMillis;
+    } else {
+      if ((currentMillis - previousMillis > 1000) % 500) {
+        digitalWrite(red, LOW);
+      } else {
+        digitalWrite(red, HIGH);
+      }
+    }
+    ledState = 1;
+  }
+
+  
 
 }
