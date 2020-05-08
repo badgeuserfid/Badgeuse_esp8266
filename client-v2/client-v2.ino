@@ -41,7 +41,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 ////////////////////////////////////////////////////////////
 
 // Calculate the capacity neede for JSON objects (3 objects and 64 bytes for data)
-const size_t capacity = JSON_OBJECT_SIZE(3) + 64;
+const size_t json_size = JSON_OBJECT_SIZE(3) + 64;
 
 
 ////////////////////////////////////////////////////////////
@@ -50,12 +50,12 @@ const size_t capacity = JSON_OBJECT_SIZE(3) + 64;
 
 // Set the Wifi ssid and password
 const char* ssid = STASSID;
-const char* password = STAPSK;
+const char* wifi_password = STAPSK;
 
-void wifi_setup() {
+void wifiSetup() {
   // Initiate Wifi connexion
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, wifi_password);
   // Wait for wifi connexion established
   while(WiFi.status() != WL_CONNECTED) {
     Serial.print("."); // DEBUG
@@ -78,44 +78,44 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // Request number increments for every new request send
-long request = 0;
+long client_request = 0;
 
 //--------------------------------------------------------//
 // Callback
 //--------------------------------------------------------//
 // This function handle incomming message
-void callback(const char* topic, byte* payload, unsigned int length) {
+void mqttCallback(const char* topic, byte* payload_byte, unsigned int length) {
   Serial.print("MQTT in : "); // DEBUG
   Serial.print(topic); // DEBUG
   Serial.print(" => "); // DEBUG
   for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]); // DEBUG
+    Serial.print((char)payload_byte[i]); // DEBUG
   }
   Serial.println(); // DEBUG
 
   if (strcmp(topic, "")) {
-    String message = "";
+    String payload_str = "";
     // Create a JSON object
-    DynamicJsonDocument toRecieve(capacity);
+    DynamicJsonDocument to_recieve(json_size);
     // Convert the byte* message into String
     for (int i = 0; i < length; i++) {
-      message.concat((char)payload[i]);
+      payload_str.concat((char)payload_byte[i]);
     }
     // parse JSON string
-    deserializeJson(toRecieve, message);
+    deserializeJson(to_recieve, payload_str);
   }
 }
 
-void mqtt_setup() {
+void mqttSetup() {
   // Create the connexion to the mqtt server
   client.setServer(mqtt_server, mqtt_port);
   // set the callback function for subscribed topics
-  client.setCallback(callback);
+  client.setCallback(mqttCallback);
 }
 
 
 ////////////////////////////////////////////////////////////
-// LEDs and Relay *
+// LEDs and Relay
 ////////////////////////////////////////////////////////////
 
 // LEDs Effects
@@ -158,9 +158,9 @@ void setup() {
   SPI.begin(); // Initiate  SPI bus
   mfrc522.PCD_Init(); // Initiate MFRC522
 
-  //wifi_setup();
+  //wifiSetup();
 
-  //mqtt_setup();
+  //mqttSetup();
 
   pinMode(RELAY, OUTPUT);
 }
@@ -195,7 +195,7 @@ void loop() {
   
   // Store the RFID tag UID in uid
   String uid = "";
-  byte letter;
+  //byte letter;
   for (byte i = 0; i < mfrc522.uid.size; i++) {
     uid.concat(String(mfrc522.uid.uidByte[i], HEX));
   }
