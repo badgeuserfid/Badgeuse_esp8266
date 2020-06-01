@@ -38,7 +38,7 @@ const int green = D3;
 const int red = D4;
 String pinAction;
 int ledState;
-const int relay = D5;
+const int relay = D8;
 
 // Delay without delay
 unsigned long currentMillis;
